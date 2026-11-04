@@ -1,3 +1,13 @@
+// ==============================================================================
+// INTECOAL ASISTENCIA - ESQUEMA DE BASE DE DATOS POSTGRESQL (PRISMA ORM v6.19.3)
+// ==============================================================================
+// Diseñado para cumplimiento estricto de:
+// 1. Inmutabilidad y trazabilidad completa de marcaciones (4 marcas diarias).
+// 2. Horarios con vigencia histórica y tolerancias configurables.
+// 3. Control de incidencias (faltantes y fuera de secuencia) sin invención de datos.
+// 4. Idempotencia y anti-duplicidad mediante restricciones únicas compuestas.
+// 5. Zona horaria de referencia: America/Bogota (persistencia en UTC).
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,3 +17,245 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ------------------------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------------------------
+
+enum Role {
+  ADMIN       // Acceso total a configuración, reportes, usuarios y auditoría
+  SUPERVISOR  // Monitoreo operativo, revisión y resolución de incidencias
+  EMPLEADO    // Acceso móvil PWA para escanear QR y consultar historial propio
+  KIOSCO      // Terminal autorizada para proyección de QR dinámico
+}
+
+enum TipoMarcacion {
+  ENTRADA_MANANA    // 1. Inicio de la jornada laboral
+  SALIDA_ALMUERZO   // 2. Salida al descanso / almuerzo
+  ENTRADA_ALMUERZO  // 3. Regreso del descanso / almuerzo
+  SALIDA_JORNADA    // 4. Finalización de la jornada laboral
+}
+
+enum EstadoMarcacion {
+  ORIGINAL    // Marcación realizada por el empleado mediante escaneo QR
+  CORREGIDO   // Registro modificado mediante corrección administrativa auditada
+  ANULADO     // Registro invalidado administrativamente (preservado para auditoría)
+}
+
+enum PuntualidadEstado {
+  A_TIEMPO    // Dentro del margen de tolerancia programado
+  RETARDO     // Ingreso posterior a la tolerancia
+  ANTICIPADO  // Salida previa al horario programado
+  NO_APLICA   // Marcaciones intermedias o días no laborales
+}
+
+enum TipoIncidencia {
+  MARCACION_FALTANTE   // Al cierre del día faltan registros del ciclo de 4
+  FUERA_DE_SECUENCIA   // Registro efectuado saltando el orden lógico
+  HORA_ATIPICA         // Registro en ventana horaria fuera del turno
+  DUPLICADO_INTENTADO  // Intento de doble marcación dentro del cooldown
+}
+
+enum EstadoIncidencia {
+  PENDIENTE    // Requiere revisión por parte de Supervisor o Administrador
+  JUSTIFICADA  // Aceptada con soporte formal (ej. permiso, incapacidad médica)
+  RESUELTA     // Subsanada mediante corrección administrativa auditada
+  RECHAZADA    // Desestimada sin modificación del registro
+}
+
+enum DiaSemana {
+  LUNES
+  MARTES
+  MIERCOLES
+  JUEVES
+  VIERNES
+  SABADO
+  DOMINGO
+}
+
+// ------------------------------------------------------------------------------
+// MODELOS PRINCIPALES
+// ------------------------------------------------------------------------------
+
+/// Empleados, supervisores, administradores y terminales del sistema
+model User {
+  id              String      @id @default(uuid())
+  documento       String      @unique // Cédula de ciudadanía o identificación
+  nombre          String
+  apellido        String
+  email           String      @unique
+  passwordHash    String
+  role            Role        @default(EMPLEADO)
+  cargo           String?     // Cargo funcional en INTECOAL S.A.S.
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relaciones
+  scheduleAssignments EmployeeScheduleAssignment[]
+  attendances         Attendance[]
+  incidentsReported   AttendanceIncident[]         @relation("EmpleadoIncidencias")
+  incidentsResolved   AttendanceIncident[]         @relation("SupervisorResolutor")
+  auditLogsAuthored   AttendanceAuditLog[]         @relation("AdminAuditor")
+
+  @@index([documento])
+  @@index([role, isActive])
+  @@map("users")
+}
+
+/// Terminales físicas autorizadas para proyectar códigos QR dinámicos
+model KioskDevice {
+  id               String       @id @default(uuid())
+  codigo           String       @unique // Ej: "KIOSK-SEDE-BOGOTA-01"
+  nombre           String       // Ej: "Kiosco Recepción Entrada Principal"
+  ubicacion        String       // Ej: "Torre A, Piso 1"
+  secretKey        String       // Llave criptográfica para firma de tokens HMAC-SHA256
+  isActive         Boolean      @default(true)
+  ipPermitida      String?      // Restricción opcional de subred o IP pública
+  ultimoHeartbeat  DateTime?    // Última señal de vida de la pantalla
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Relaciones
+  attendances      Attendance[]
+
+  @@index([codigo, isActive])
+  @@map("kiosk_devices")
+}
+
+/// Políticas de horario y parámetros de tolerancia (Configurables)
+model SchedulePolicy {
+  id                       String       @id @default(uuid())
+  nombre                   String       @unique // Ej: "Jornada Administrativa L-V"
+  descripcion              String?
+  toleranciaEntradaMinutos Int          @default(10) // Minutos de gracia a la entrada
+  toleranciaAlmuerzoMinutos Int         @default(10) // Minutos de gracia al retornar de descanso
+  minimoMinutosAlmuerzo    Int          @default(45) // Duración mínima obligatoria de almuerzo
+  isActive                 Boolean      @default(true)
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+
+  // Relaciones
+  dayRules                 ScheduleDayRule[]
+  assignments              EmployeeScheduleAssignment[]
+
+  @@map("schedule_policies")
+}
+
+/// Reglas diarias de un horario (Horas programadas por día de la semana)
+model ScheduleDayRule {
+  id                 String          @id @default(uuid())
+  schedulePolicyId   String
+  dia                DiaSemana
+  horaEntradaManana  String          // Formato "HH:mm", ej. "07:00"
+  horaSalidaAlmuerzo String          // Formato "HH:mm", ej. "12:00"
+  horaEntradaAlmuerzo String         // Formato "HH:mm", ej. "13:00"
+  horaSalidaJornada  String          // Formato "HH:mm", ej. "17:00"
+  esLaboral          Boolean         @default(true)
+
+  // Relaciones
+  policy             SchedulePolicy  @relation(fields: [schedulePolicyId], references: [id], onDelete: Cascade)
+
+  @@unique([schedulePolicyId, dia])
+  @@index([schedulePolicyId, dia])
+  @@map("schedule_day_rules")
+}
+
+/// Asignación histórica de horario a empleados (Vigencia temporal)
+model EmployeeScheduleAssignment {
+  id                         String          @id @default(uuid())
+  userId                     String
+  schedulePolicyId           String
+  validFrom                  DateTime        @db.Date // Inicio de vigencia
+  validUntil                 DateTime?       @db.Date // NULL = vigente indefinidamente
+  toleranciaPersonalizadaMin Int?            // Sobrescritura opcional por empleado
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+
+  // Relaciones
+  user                       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policy                     SchedulePolicy  @relation(fields: [schedulePolicyId], references: [id], onDelete: Restrict)
+
+  @@index([userId, validFrom, validUntil])
+  @@index([schedulePolicyId])
+  @@map("employee_schedule_assignments")
+}
+
+/// Registro individual de marcación (Una de las 4 diarias)
+model Attendance {
+  id                 String             @id @default(uuid())
+  userId             String
+  kioskId            String?            // NULL si fue creación manual administrativa
+  tipo               TipoMarcacion
+  fechaLaboral       DateTime           @db.Date // Fecha oficial en America/Bogota
+  timestampUTC       DateTime           // Estampa exacta del servidor en UTC
+  timestampLocal     DateTime           // Estampa calculada para America/Bogota
+  estado             EstadoMarcacion    @default(ORIGINAL)
+  idempotencyKey     String             @unique // Control estricto contra dobles registros
+  puntualidad        PuntualidadEstado  @default(A_TIEMPO)
+  minutosDiferencia  Int                @default(0) // >0 retardo, <0 salida anticipada
+  esOriginal         Boolean            @default(true) // Inmutabilidad del origen
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relaciones
+  user               User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  kiosk              KioskDevice?       @relation(fields: [kioskId], references: [id], onDelete: SetNull)
+  incidents          AttendanceIncident[]
+  auditLogs          AttendanceAuditLog[]
+
+  // Restricción clave: Impide que un empleado repita la misma marcación en la misma fecha laboral
+  @@unique([userId, fechaLaboral, tipo])
+  @@index([userId, fechaLaboral])
+  @@index([fechaLaboral, tipo])
+  @@index([timestampUTC])
+  @@map("attendances")
+}
+
+/// Registro y gestión de anomalías operativas de asistencia
+model AttendanceIncident {
+  id                 String             @id @default(uuid())
+  userId             String
+  attendanceId       String?            // Marcación asociada (si aplica)
+  fechaLaboral       DateTime           @db.Date
+  tipo               TipoIncidencia
+  estado             EstadoIncidencia   @default(PENDIENTE)
+  descripcion        String             // Detalle del evento o inconsistencia
+  resolucion         String?            // Argumento de la justificación o corrección
+  resueltoPorId      String?            // Supervisor o Admin que atendió la incidencia
+  resueltoEn         DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relaciones
+  user               User               @relation("EmpleadoIncidencias", fields: [userId], references: [id], onDelete: Restrict)
+  attendance         Attendance?        @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  resueltoPor        User?              @relation("SupervisorResolutor", fields: [resueltoPorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, fechaLaboral])
+  @@index([estado, tipo])
+  @@index([fechaLaboral])
+  @@map("attendance_incidents")
+}
+
+/// Registro inmutable de auditoría para toda intervención administrativa
+model AttendanceAuditLog {
+  id                 String             @id @default(uuid())
+  attendanceId       String
+  adminId            String             // Administrador o Supervisor responsable
+  accion             String             // "CREACION_MANUAL" | "CORRECCION_HORA" | "ANULACION" | "RESOLUCION_INCIDENCIA"
+  motivo             String             // Justificación obligatoria del cambio
+  valoresAnteriores  Json               // Snapshot completo previo a la modificación
+  valoresNuevos      Json               // Snapshot completo posterior a la modificación
+  ipAddress          String?
+  userAgent          String?
+  createdAt          DateTime           @default(now())
+
+  // Relaciones
+  attendance         Attendance         @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  admin              User               @relation("AdminAuditor", fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([attendanceId])
+  @@index([adminId])
+  @@index([createdAt])
+  @@map("attendance_audit_logs")
+}

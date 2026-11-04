@@ -47,3 +47,4 @@ export interface AuditDiff {
   valorAnterior: unknown;
   valorNuevo: unknown;
 }
+

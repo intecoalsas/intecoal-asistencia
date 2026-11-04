@@ -118,16 +118,27 @@ flowchart TD
 erDiagram
     User ||--o{ EmployeeScheduleAssignment : "tiene asignado"
     User ||--o{ Attendance : "registra"
-    User ||--o{ AttendanceIncident : "genera"
+    User ||--o{ AttendanceIncident : "origina / resuelve"
     User ||--o{ AttendanceAuditLog : "audita (admin)"
 
-    SchedulePolicy ||--o{ EmployeeScheduleAssignment : "define"
+    SchedulePolicy ||--o{ ScheduleDayRule : "contiene reglas por dia"
+    SchedulePolicy ||--o{ EmployeeScheduleAssignment : "define turno"
 
     Attendance ||--o{ AttendanceIncident : "puede originar"
-    Attendance ||--o{ AttendanceAuditLog : "tiene historial"
+    Attendance ||--o{ AttendanceAuditLog : "tiene historial inmutable"
 
     KioskDevice ||--o{ Attendance : "captura en"
 ```
+
+### Detalle de Entidades Principales
+1. **`users`:** Empleados, supervisores, administradores y terminales del sistema.
+2. **`kiosk_devices`:** Terminales físicas autorizadas con llaves HMAC propias.
+3. **`schedule_policies`:** Políticas de turno con parámetros de tolerancia configurables.
+4. **`schedule_day_rules`:** Reglas estructuradas por día de la semana (Lunes a Domingo) con horas de las 4 marcas.
+5. **`employee_schedule_assignments`:** Asignaciones de turno con vigencia histórica (`validFrom`, `validUntil`).
+6. **`attendances`:** Registros de asistencia con restricción anti-duplicidad `(userId, fechaLaboral, tipo)` e `idempotencyKey`.
+7. **`attendance_incidents`:** Gestión de anomalías operativas (marcas faltantes o fuera de secuencia).
+8. **`attendance_audit_logs`:** Trazabilidad inmutable de correcciones con snapshots JSON de valores previos y nuevos.
 
 ---
 
@@ -152,3 +163,4 @@ El proyecto está diseñado para facilitar su despliegue futuro en servicios de 
 - **Tareas Programadas:** **Amazon EventBridge Scheduler** invocando de manera segura el endpoint del reporte semanal cada viernes.
 - **Almacenamiento de Archivos:** **Amazon S3** para resguardo histórico de los libros Excel generados.
 - **Correo Electrónico:** **Amazon SES (Simple Email Service)** para entrega de reportes por correo.
+

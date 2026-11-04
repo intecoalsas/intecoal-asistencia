@@ -35,3 +35,4 @@ export function formatBogota(
 export function getTodayDateString(): string {
   return formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd");
 }
+

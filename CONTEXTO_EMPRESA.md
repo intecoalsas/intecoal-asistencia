@@ -53,3 +53,4 @@ Para garantizar el éxito de la implementación y cumplir los principios de modu
 1. **Exactitud Temporal:** Toda marcación se rige por la hora del servidor en la zona horaria oficial `America/Bogota` (UTC-5).
 2. **Inmutabilidad y Honestidad del Dato:** Ningún registro se sobreescribe o elimina físicamente. Si ocurre una corrección, el historial conserva el dato original, el dato nuevo y la justificación.
 3. **No Dependencia de Hardware Local:** Los procesos críticos (como el reporte semanal de los viernes) corren en infraestructura alojada en la nube, operando sin interrupción aún si todos los computadores de la sede física están apagados.
+

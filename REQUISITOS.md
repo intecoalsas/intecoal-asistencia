@@ -88,3 +88,4 @@
 ### RNF-05: Independencia de Infraestructura Local
 - La aplicación no debe depender de servidores o equipos físicos encendidos en las oficinas de la empresa.
 - Arquitectura preparada para despliegue en infraestructura administrada de nube (AWS / PostgreSQL gestionado).
+

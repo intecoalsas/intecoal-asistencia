@@ -88,3 +88,4 @@ Cada jornada laboral ordinaria comprende cuatro eventos obligatorios que deben s
    - **Pestaña 3 - Bitácora de Incidencias y Auditoría:** Listado de todas las correcciones administrativas realizadas en la semana, con usuario responsable y motivo.
 3. **Automatización:**
    - El envío se realiza de forma automática cada viernes mediante una tarea programada en la nube, entregando el archivo adjunto a los correos configurados de Gerencia y Recursos Humanos.
+
