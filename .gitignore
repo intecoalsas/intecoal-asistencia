@@ -61,3 +61,32 @@ desktop.ini
 /temp/
 *.xlsx
 *.xls
+
+# ------------------------------------------------------------------------------
+# Archivos locales y sensibles (F1 — protección del repositorio)
+# ------------------------------------------------------------------------------
+
+# Certificados y claves locales (HTTPS de desarrollo)
+/certs/
+*.p12
+*.pfx
+
+# Respaldos y volcados de base de datos (pueden contener datos y hashes)
+/backups/
+*.dump
+*.sql.gz
+*.bak
+
+# SQL suelto en la raíz (las migraciones en prisma/migrations no se ven afectadas)
+/*.sql
+
+# Scripts y archivos temporales locales
+/scratch/
+/tmp/
+
+# Logs locales
+*.log
+
+# Scripts con contraseñas escritas en el código (no versionar)
+/src/scripts/create-admin.ts
+/src/scripts/create-admin.js

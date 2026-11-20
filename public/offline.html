@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0D0D0D" />
+  <title>Sin conexión | INTECOAL Asistencia</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: #F2F2F2; color: #0D0D0D;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    header { background: #0D0D0D; color: #F2F2F2; padding: 12px 16px; font-weight: 600; font-size: 18px; }
+    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .tarjeta { max-width: 420px; background: #fff; border: 1px solid #D4D4D0; border-top: 4px solid #D9CF43;
+      border-radius: 8px; padding: 24px; text-align: center; }
+    img { width: 96px; height: 96px; border-radius: 50%; }
+    h1 { font-size: 20px; margin: 16px 0 8px; }
+    p { color: #595959; line-height: 1.5; margin: 0 0 12px; }
+    button { background: #D9CF43; color: #0D0D0D; border: 0; border-radius: 6px; padding: 10px 18px;
+      font-size: 15px; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>INTECOAL Asistencia</header>
+  <main>
+    <div class="tarjeta">
+      <img src="/icons/icon-192.png" alt="INTECOAL" />
+      <h1>Sin conexión</h1>
+      <p>No hay conexión a internet en este momento.</p>
+      <p>Las marcaciones de asistencia necesitan conexión: el código QR se valida en el servidor y caduca a los pocos segundos. Conéctate y vuelve a intentarlo.</p>
+      <button type="button" onclick="location.reload()">Reintentar</button>
+    </div>
+  </main>
+</body>
+</html>

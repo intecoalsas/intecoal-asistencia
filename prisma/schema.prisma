@@ -1,6 +1,7 @@
+
 // ==============================================================================
-// INTECOAL ASISTENCIA - ESQUEMA DE BASE DE DATOS POSTGRESQL (PRISMA ORM v6.19.3)
-// ==============================================================================
+// INTECOAL ASISTENCIA - ESQUEMA DE BASE DE DATOS MYSQL (PRISMA ORM v6.19.3)
+// ===============================================================================
 // Diseñado para cumplimiento estricto de:
 // 1. Inmutabilidad y trazabilidad completa de marcaciones (4 marcas diarias).
 // 2. Horarios con vigencia histórica y tolerancias configurables.
@@ -13,8 +14,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 // ------------------------------------------------------------------------------
@@ -22,44 +24,45 @@ datasource db {
 // ------------------------------------------------------------------------------
 
 enum Role {
-  ADMIN       // Acceso total a configuración, reportes, usuarios y auditoría
-  SUPERVISOR  // Monitoreo operativo, revisión y resolución de incidencias
-  EMPLEADO    // Acceso móvil PWA para escanear QR y consultar historial propio
-  KIOSCO      // Terminal autorizada para proyección de QR dinámico
+  ADMIN // Acceso total a configuración, reportes, usuarios y auditoría
+  SUPERVISOR // Monitoreo operativo, revisión y resolución de incidencias
+  EMPLEADO // Acceso móvil PWA para escanear QR y consultar historial propio
+  KIOSCO // Terminal autorizada para proyección de QR dinámico
 }
 
 enum TipoMarcacion {
-  ENTRADA_MANANA    // 1. Inicio de la jornada laboral
-  SALIDA_ALMUERZO   // 2. Salida al descanso / almuerzo
-  ENTRADA_ALMUERZO  // 3. Regreso del descanso / almuerzo
-  SALIDA_JORNADA    // 4. Finalización de la jornada laboral
+  ENTRADA_MANANA // 1. Inicio de la jornada laboral
+  SALIDA_ALMUERZO // 2. Salida al descanso / almuerzo
+  ENTRADA_ALMUERZO // 3. Regreso del descanso / almuerzo
+  SALIDA_JORNADA // 4. Finalización de la jornada laboral
 }
 
 enum EstadoMarcacion {
-  ORIGINAL    // Marcación realizada por el empleado mediante escaneo QR
-  CORREGIDO   // Registro modificado mediante corrección administrativa auditada
-  ANULADO     // Registro invalidado administrativamente (preservado para auditoría)
+  ORIGINAL // Marcación realizada por el empleado mediante escaneo QR
+  CORREGIDO // Registro modificado mediante corrección administrativa auditada
+  ANULADO // Registro invalidado administrativamente (preservado para auditoría)
 }
 
 enum PuntualidadEstado {
-  A_TIEMPO    // Dentro del margen de tolerancia programado
-  RETARDO     // Ingreso posterior a la tolerancia
-  ANTICIPADO  // Salida previa al horario programado
-  NO_APLICA   // Marcaciones intermedias o días no laborales
+  A_TIEMPO // Dentro del margen de tolerancia programado
+  RETARDO // Ingreso posterior a la tolerancia
+  ANTICIPADO // Salida previa al horario programado
+  NO_APLICA // Marcaciones intermedias o días no laborales
 }
 
 enum TipoIncidencia {
-  MARCACION_FALTANTE   // Al cierre del día faltan registros del ciclo de 4
-  FUERA_DE_SECUENCIA   // Registro efectuado saltando el orden lógico
-  HORA_ATIPICA         // Registro en ventana horaria fuera del turno
-  DUPLICADO_INTENTADO  // Intento de doble marcación dentro del cooldown
+  MARCACION_FALTANTE // Al cierre del día faltan registros del ciclo de 4
+  FUERA_DE_SECUENCIA // Registro efectuado saltando el orden lógico
+  HORA_ATIPICA // Registro en ventana horaria fuera del turno
+  DUPLICADO_INTENTADO // Intento de doble marcación dentro del cooldown
 }
 
 enum EstadoIncidencia {
-  PENDIENTE    // Requiere revisión por parte de Supervisor o Administrador
-  JUSTIFICADA  // Aceptada con soporte formal (ej. permiso, incapacidad médica)
-  RESUELTA     // Subsanada mediante corrección administrativa auditada
-  RECHAZADA    // Desestimada sin modificación del registro
+  PENDIENTE // Requiere revisión por parte de Supervisor o Administrador
+  EN_REVISION // Está siendo atendida por Supervisor o Administrador
+  JUSTIFICADA // Aceptada con soporte formal (ej. permiso, incapacidad médica)
+  RESUELTA // Subsanada mediante corrección administrativa auditada
+  RECHAZADA // Desestimada sin modificación del registro
 }
 
 enum DiaSemana {
@@ -78,160 +81,204 @@ enum DiaSemana {
 
 /// Empleados, supervisores, administradores y terminales del sistema
 model User {
-  id              String      @id @default(uuid())
-  documento       String      @unique // Cédula de ciudadanía o identificación
-  nombre          String
-  apellido        String
-  email           String      @unique
-  passwordHash    String
-  role            Role        @default(EMPLEADO)
-  cargo           String?     // Cargo funcional en INTECOAL S.A.S.
-  isActive        Boolean     @default(true)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id           String   @id @default(uuid())
+  documento    String   @unique // Cédula de ciudadanía o identificación
+  nombre       String
+  apellido     String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(EMPLEADO)
+  cargo        String?  // Cargo funcional en INTECOAL S.A.S.
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relaciones
   scheduleAssignments EmployeeScheduleAssignment[]
   attendances         Attendance[]
-  incidentsReported   AttendanceIncident[]         @relation("EmpleadoIncidencias")
-  incidentsResolved   AttendanceIncident[]         @relation("SupervisorResolutor")
-  auditLogsAuthored   AttendanceAuditLog[]         @relation("AdminAuditor")
+  incidentsReported   AttendanceIncident[] @relation("EmpleadoIncidencias")
+  incidentsResolved   AttendanceIncident[] @relation("SupervisorResolutor")
+  auditLogsAuthored   AttendanceAuditLog[] @relation("AdminAuditor")
+  cierresEjecutados   WeeklyClosure[]      @relation("CierresEjecutados")
+  consolidadosDia     WeeklyConsolidadoDia[] @relation("ConsolidadosDia")
+  marcacionesTardias  LateMarcacion[]      @relation("MarcacionesTardias")
+  tardiaDecisiones    LateMarcacion[]      @relation("MarcacionesTardiasAdmin")
+  diasNoLaborablesCreados DiaNoLaborable[]  @relation("DiasNoLaborablesCreados")
+  novedades               NovedadEmpleado[] @relation("NovedadesEmpleado")
+  novedadesRegistradas    NovedadEmpleado[] @relation("NovedadesRegistradas")
+  novedadesResueltas      NovedadEmpleado[] @relation("NovedadesResueltas")
 
-  @@index([documento])
   @@index([role, isActive])
   @@map("users")
 }
 
 /// Terminales físicas autorizadas para proyectar códigos QR dinámicos
 model KioskDevice {
-  id               String       @id @default(uuid())
-  codigo           String       @unique // Ej: "KIOSK-SEDE-BOGOTA-01"
-  nombre           String       // Ej: "Kiosco Recepción Entrada Principal"
-  ubicacion        String       // Ej: "Torre A, Piso 1"
-  secretKey        String       // Llave criptográfica para firma de tokens HMAC-SHA256
-  isActive         Boolean      @default(true)
-  ipPermitida      String?      // Restricción opcional de subred o IP pública
-  ultimoHeartbeat  DateTime?    // Última señal de vida de la pantalla
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id              String    @id @default(uuid())
+  codigo          String    @unique // Ej: "KIOSK-SEDE-BOGOTA-01"
+  nombre          String // Ej: "Kiosco Recepción Entrada Principal"
+  ubicacion       String // Ej: "Torre A, Piso 1"
+  secretKey       String // Llave criptográfica para firma de tokens HMAC-SHA256
+  isActive        Boolean   @default(true)
+  ipPermitida     String?   // Restricción opcional de subred o IP pública
+  ultimoHeartbeat DateTime? // Última señal de vida de la pantalla
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // Relaciones
-  attendances      Attendance[]
+  attendances Attendance[]
+  tardias     LateMarcacion[] @relation("MarcacionesTardiasKiosk")
 
-  @@index([codigo, isActive])
   @@map("kiosk_devices")
 }
 
 /// Políticas de horario y parámetros de tolerancia (Configurables)
 model SchedulePolicy {
-  id                       String       @id @default(uuid())
-  nombre                   String       @unique // Ej: "Jornada Administrativa L-V"
-  descripcion              String?
-  toleranciaEntradaMinutos Int          @default(10) // Minutos de gracia a la entrada
-  toleranciaAlmuerzoMinutos Int         @default(10) // Minutos de gracia al retornar de descanso
-  minimoMinutosAlmuerzo    Int          @default(45) // Duración mínima obligatoria de almuerzo
-  isActive                 Boolean      @default(true)
-  createdAt                DateTime     @default(now())
-  updatedAt                DateTime     @updatedAt
+  id                        String   @id @default(uuid())
+  nombre                    String   @unique // Ej: "Jornada Administrativa L-V"
+  descripcion               String?
+  toleranciaEntradaMinutos  Int      @default(10) // Minutos de gracia a la entrada
+  toleranciaAlmuerzoMinutos Int      @default(10) // Minutos de gracia al retornar de descanso
+  minimoMinutosAlmuerzo     Int      @default(45) // Duración mínima obligatoria de almuerzo
+  isActive                  Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   // Relaciones
-  dayRules                 ScheduleDayRule[]
-  assignments              EmployeeScheduleAssignment[]
+  dayRules    ScheduleDayRule[]
+  assignments EmployeeScheduleAssignment[]
+  consolidadosDia WeeklyConsolidadoDia[] @relation("ConsolidadosPolitica")
 
   @@map("schedule_policies")
 }
 
 /// Reglas diarias de un horario (Horas programadas por día de la semana)
 model ScheduleDayRule {
-  id                 String          @id @default(uuid())
-  schedulePolicyId   String
-  dia                DiaSemana
-  horaEntradaManana  String          // Formato "HH:mm", ej. "07:00"
-  horaSalidaAlmuerzo String          // Formato "HH:mm", ej. "12:00"
-  horaEntradaAlmuerzo String         // Formato "HH:mm", ej. "13:00"
-  horaSalidaJornada  String          // Formato "HH:mm", ej. "17:00"
-  esLaboral          Boolean         @default(true)
+  id                  String    @id @default(uuid())
+  schedulePolicyId    String
+  dia                 DiaSemana
+  horaEntradaManana   String // Formato "HH:mm", ej. "07:00"
+  horaSalidaAlmuerzo  String // Formato "HH:mm", ej. "12:00"
+  horaEntradaAlmuerzo String // Formato "HH:mm", ej. "13:00"
+  horaSalidaJornada   String // Formato "HH:mm", ej. "17:00"
+  esLaboral           Boolean   @default(true)
 
   // Relaciones
-  policy             SchedulePolicy  @relation(fields: [schedulePolicyId], references: [id], onDelete: Cascade)
+  policy SchedulePolicy @relation(fields: [schedulePolicyId], references: [id], onDelete: Cascade)
 
   @@unique([schedulePolicyId, dia])
-  @@index([schedulePolicyId, dia])
+  // @@index([schedulePolicyId, dia])  // removed redundant unique index
   @@map("schedule_day_rules")
 }
 
 /// Asignación histórica de horario a empleados (Vigencia temporal)
 model EmployeeScheduleAssignment {
-  id                         String          @id @default(uuid())
+  id                         String    @id @default(uuid())
   userId                     String
   schedulePolicyId           String
-  validFrom                  DateTime        @db.Date // Inicio de vigencia
-  validUntil                 DateTime?       @db.Date // NULL = vigente indefinidamente
-  toleranciaPersonalizadaMin Int?            // Sobrescritura opcional por empleado
-  createdAt                  DateTime        @default(now())
-  updatedAt                  DateTime        @updatedAt
+  validFrom                  DateTime  @db.Date // Inicio de vigencia
+  validUntil                 DateTime? @db.Date // NULL = vigente indefinidamente
+  toleranciaPersonalizadaMin Int? // Sobrescritura opcional por empleado
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
 
   // Relaciones
-  user                       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  policy                     SchedulePolicy  @relation(fields: [schedulePolicyId], references: [id], onDelete: Restrict)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policy SchedulePolicy @relation(fields: [schedulePolicyId], references: [id], onDelete: Restrict)
 
   @@index([userId, validFrom, validUntil])
   @@index([schedulePolicyId])
   @@map("employee_schedule_assignments")
 }
 
-/// Registro individual de marcación (Una de las 4 diarias)
+/// Registro lógico padre de una marcación (puntero a versiones)
 model Attendance {
-  id                 String             @id @default(uuid())
-  userId             String
-  kioskId            String?            // NULL si fue creación manual administrativa
-  tipo               TipoMarcacion
-  fechaLaboral       DateTime           @db.Date // Fecha oficial en America/Bogota
-  timestampUTC       DateTime           // Estampa exacta del servidor en UTC
-  timestampLocal     DateTime           // Estampa calculada para America/Bogota
-  estado             EstadoMarcacion    @default(ORIGINAL)
-  idempotencyKey     String             @unique // Control estricto contra dobles registros
-  puntualidad        PuntualidadEstado  @default(A_TIEMPO)
-  minutosDiferencia  Int                @default(0) // >0 retardo, <0 salida anticipada
-  esOriginal         Boolean            @default(true) // Inmutabilidad del origen
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id           String   @id @default(uuid())
+  userId       String
+  kioskId      String? // NULL cuando la marcación es manual
+  tipo         TipoMarcacion
+  fechaLaboral DateTime @db.Date // Fecha oficial en America/Bogota
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones básicas
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  kiosk     KioskDevice?         @relation(fields: [kioskId], references: [id], onDelete: SetNull)
+  incidents AttendanceIncident[]
+  auditLogs AttendanceAuditLog[]
+  lateMarcacion LateMarcacion? @relation("MarcacionTardiaAttendance")
+
+  // Historial de versiones
+  versions AttendanceVersion[] @relation(name: "AttendanceVersions")
+
+  // Puntero a la versión actual (FK compuesta)
+  currentVersionId String? @unique
+  currentVersion   AttendanceVersion? @relation(name: "CurrentVersionPointer", fields: [id, currentVersionId], references: [attendanceId, id], onDelete: Restrict)
+
+  // Restricción única de negocio
+  @@unique([userId, fechaLaboral, tipo])
+  @@index([fechaLaboral, tipo])
+  @@unique([id, currentVersionId])
+  @@map("attendances")
+}
+
+/// Versión inmutable de una marcación
+model AttendanceVersion {
+  id               String   @id @default(uuid())
+  attendanceId     String
+  versionNumber    Int
+
+  // Snapshot de datos mutables
+  tipo              TipoMarcacion
+  timestampUTC      DateTime @db.DateTime(3)
+  // timestampLocal se elimina; se calcula en presentación
+  estado            EstadoMarcacion
+  puntualidad       PuntualidadEstado
+  minutosDiferencia Int
+  esOriginal        Boolean
+
+  // Metadatos de idempotencia
+  createdAt      DateTime @default(now())
+  idempotencyKey String   @unique // requestId que identifica la solicitud
+  payloadHash    String                    // hash determinista del contenido
 
   // Relaciones
-  user               User               @relation(fields: [userId], references: [id], onDelete: Restrict)
-  kiosk              KioskDevice?       @relation(fields: [kioskId], references: [id], onDelete: SetNull)
-  incidents          AttendanceIncident[]
-  auditLogs          AttendanceAuditLog[]
+  attendance Attendance @relation(name: "AttendanceVersions", fields: [attendanceId], references: [id], onDelete: Restrict)
 
-  // Restricción clave: Impide que un empleado repita la misma marcación en la misma fecha laboral
-  @@unique([userId, fechaLaboral, tipo])
-  @@index([userId, fechaLaboral])
-  @@index([fechaLaboral, tipo])
-  @@index([timestampUTC])
-  @@map("attendances")
+  // Inverso del puntero actual (opcional, uno-a-uno)
+  currentOf Attendance? @relation(name: "CurrentVersionPointer")
+
+  // Auditoría opcional (uno-a-uno)
+  auditLogId String? @unique
+  auditLog   AttendanceAuditLog? @relation(name: "AttendanceVersionAudit", fields: [auditLogId], references: [id], onDelete: Restrict)
+
+  @@unique([attendanceId, versionNumber])
+  @@unique([attendanceId, id]) // clave única requerida por la FK compuesta
+  @@index([attendanceId])
+  @@map("attendance_versions")
 }
 
 /// Registro y gestión de anomalías operativas de asistencia
 model AttendanceIncident {
-  id                 String             @id @default(uuid())
-  userId             String
-  attendanceId       String?            // Marcación asociada (si aplica)
-  fechaLaboral       DateTime           @db.Date
-  tipo               TipoIncidencia
-  estado             EstadoIncidencia   @default(PENDIENTE)
-  descripcion        String             // Detalle del evento o inconsistencia
-  resolucion         String?            // Argumento de la justificación o corrección
-  resueltoPorId      String?            // Supervisor o Admin que atendió la incidencia
-  resueltoEn         DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id            String           @id @default(uuid())
+  userId        String
+  attendanceId  String? // Marcación asociada (si aplica)
+  fechaLaboral  DateTime         @db.Date
+  tipo          TipoIncidencia
+  estado        EstadoIncidencia @default(PENDIENTE)
+  descripcion   String           @db.Text // Detalle del evento o inconsistencia
+  resolucion    String?          @db.Text // Argumento de la justificación o corrección
+  resueltoPorId String? // Supervisor o Admin que atendió la incidencia
+  resueltoEn    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   // Relaciones
-  user               User               @relation("EmpleadoIncidencias", fields: [userId], references: [id], onDelete: Restrict)
-  attendance         Attendance?        @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
-  resueltoPor        User?              @relation("SupervisorResolutor", fields: [resueltoPorId], references: [id], onDelete: SetNull)
+  user        User                 @relation("EmpleadoIncidencias", fields: [userId], references: [id], onDelete: Restrict)
+  attendance  Attendance?          @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  resueltoPor User?                @relation("SupervisorResolutor", fields: [resueltoPorId], references: [id], onDelete: SetNull)
+  auditLogs   AttendanceAuditLog[] @relation("IncidentAuditLogs")
 
-  @@index([userId, fechaLaboral])
   @@index([estado, tipo])
   @@index([fechaLaboral])
   @@map("attendance_incidents")
@@ -239,23 +286,292 @@ model AttendanceIncident {
 
 /// Registro inmutable de auditoría para toda intervención administrativa
 model AttendanceAuditLog {
-  id                 String             @id @default(uuid())
-  attendanceId       String
-  adminId            String             // Administrador o Supervisor responsable
-  accion             String             // "CREACION_MANUAL" | "CORRECCION_HORA" | "ANULACION" | "RESOLUCION_INCIDENCIA"
-  motivo             String             // Justificación obligatoria del cambio
-  valoresAnteriores  Json               // Snapshot completo previo a la modificación
-  valoresNuevos      Json               // Snapshot completo posterior a la modificación
-  ipAddress          String?
-  userAgent          String?
-  createdAt          DateTime           @default(now())
+  id                String   @id @default(uuid())
+  attendanceId      String? // opcional: referencia a la asistencia base
+  incidentId        String? // opcional: referencia a una incidencia
+  // Relación inversa única (sin campo escalar adicional)
+  version           AttendanceVersion? @relation(name: "AttendanceVersionAudit")
+
+  adminId           String
+  accion            String
+  motivo            String   @db.Text
+  valoresAnteriores Json
+  valoresNuevos     Json
+  ipAddress         String?
+  userAgent         String?  @db.Text
+  createdAt         DateTime @default(now())
 
   // Relaciones
-  attendance         Attendance         @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
-  admin              User               @relation("AdminAuditor", fields: [adminId], references: [id], onDelete: Restrict)
+  attendance Attendance?         @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  incident   AttendanceIncident? @relation("IncidentAuditLogs", fields: [incidentId], references: [id], onDelete: Restrict)
+  admin      User                @relation(name: "AdminAuditor", fields: [adminId], references: [id], onDelete: Restrict)
 
   @@index([attendanceId])
+  @@index([incidentId])
   @@index([adminId])
   @@index([createdAt])
   @@map("attendance_audit_logs")
+}
+
+// ------------------------------------------------------------------------------
+// MÓDULO HISTORIAL — Fase 1
+// ------------------------------------------------------------------------------
+
+enum EstadoPeriodo {
+  ABIERTA
+  PENDIENTE_CIERRE
+  CERRADA
+  REABIERTA
+}
+
+enum TipoCierre {
+  AUTOMATICO
+  MANUAL_ADMIN
+}
+
+enum EstadoMarcacionTardia {
+  PENDIENTE
+  INCORPORADA
+  RECHAZADA
+}
+
+enum ResultadoIntento {
+  EN_PROGRESO
+  EXITO
+  FALLO
+}
+
+/// Entidad raíz de un período semanal (lunes–domingo). Una fila por semana; estado mutable.
+model WeeklyPeriod {
+  id           String        @id @default(uuid())
+  inicioSemana DateTime      @db.Date
+  finSemana    DateTime      @db.Date
+  estado       EstadoPeriodo @default(ABIERTA)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  cierres            WeeklyClosure[]
+  intentos           ClosureAttempt[]
+  marcacionesTardias LateMarcacion[]
+
+  @@unique([inicioSemana])
+  @@index([estado])
+  @@index([finSemana])
+  @@map("weekly_periods")
+}
+
+/// Versión de cierre de un período semanal. Append-only. Nunca representa reaperturas
+/// (estas se registran en AttendanceAuditLog). La versión vigente: MAX(version) WHERE exitoso = true.
+model WeeklyClosure {
+  id             String     @id @default(uuid())
+  weeklyPeriodId String
+  version        Int
+  tipo           TipoCierre
+  exitoso        Boolean    @default(false)
+  actorId        String?
+  motivo         String?    @db.Text
+  cerradoEn      DateTime
+  createdAt      DateTime   @default(now())
+
+  weeklyPeriod WeeklyPeriod           @relation(fields: [weeklyPeriodId], references: [id], onDelete: Restrict)
+  actor        User?                  @relation("CierresEjecutados", fields: [actorId], references: [id], onDelete: SetNull)
+  consolidados WeeklyConsolidadoDia[]
+
+  @@unique([weeklyPeriodId, version])
+  @@index([weeklyPeriodId, exitoso])
+  @@map("weekly_closures")
+}
+
+/// Resultado diario consolidado por empleado dentro de una versión de cierre.
+/// weeklyPeriodId eliminado (corrección D): se obtiene siempre via weeklyClosure.weeklyPeriodId
+/// para garantizar consistencia referencial sin depender de validación de aplicación.
+model WeeklyConsolidadoDia {
+  id              String   @id @default(uuid())
+  weeklyClosureId String
+  userId          String
+  fechaLaboral    DateTime @db.Date
+
+  esLaboral            Boolean @default(false)
+  tieneEntradaManana   Boolean @default(false)
+  tieneSalidaAlmuerzo  Boolean @default(false)
+  tieneEntradaAlmuerzo Boolean @default(false)
+  tieneSalidaJornada   Boolean @default(false)
+
+  jornadaCompleta     Boolean @default(false)
+  ausente             Boolean @default(false)
+  tardanzaEntradaMin  Int     @default(0)
+  tardanzaAlmuerzoMin Int     @default(0)
+  esImpuntual         Boolean @default(false)
+
+  incidenciasPendientes Int @default(0)
+  incidenciasResueltas  Int @default(0)
+
+  toleranciaEntradaMin  Int     @default(0)
+  toleranciaAlmuerzoMin Int     @default(0)
+  schedulePolicyId      String?
+
+  createdAt DateTime @default(now())
+
+  weeklyClosure  WeeklyClosure   @relation(fields: [weeklyClosureId], references: [id], onDelete: Restrict)
+  user           User            @relation("ConsolidadosDia", fields: [userId], references: [id], onDelete: Restrict)
+  schedulePolicy SchedulePolicy? @relation("ConsolidadosPolitica", fields: [schedulePolicyId], references: [id], onDelete: SetNull)
+
+  // F5 — calendario laboral y novedades (foto del momento del cierre)
+  esNoLaborableCalendario Boolean          @default(false)
+  novedadId               String?
+  novedad                 NovedadEmpleado? @relation(fields: [novedadId], references: [id], onDelete: SetNull)
+
+  @@unique([weeklyClosureId, userId, fechaLaboral])
+  @@index([novedadId])
+  @@index([fechaLaboral, userId])
+  @@index([userId, fechaLaboral])
+  @@map("weekly_consolidado_dia")
+}
+
+/// Log de intentos de ejecución del proceso de cierre. Permite recuperación ante fallos.
+model ClosureAttempt {
+  id             String           @id @default(uuid())
+  weeklyPeriodId String
+  intentoNum     Int
+  resultado      ResultadoIntento @default(EN_PROGRESO)
+  errorMsg       String?          @db.Text
+  iniciado       DateTime
+  finalizado     DateTime?
+  createdAt      DateTime         @default(now())
+
+  weeklyPeriod WeeklyPeriod @relation(fields: [weeklyPeriodId], references: [id], onDelete: Restrict)
+
+  @@unique([weeklyPeriodId, intentoNum])
+  @@index([weeklyPeriodId, resultado])
+  @@index([resultado])
+  @@map("closure_attempts")
+}
+
+/// Tokens QR ya utilizados por un empleado (protección anti-reutilización de JTI).
+/// Un empleado no puede reutilizar el mismo jti durante su ventana de vigencia.
+/// Otros empleados pueden usar el mismo QR normalmente (clave única: userId+jti).
+/// Los registros se limpian oportunistamente cuando expiresAt < NOW().
+// ------------------------------------------------------------------------------
+// F4 — LÍMITE DE INTENTOS DE LOGIN
+// ------------------------------------------------------------------------------
+
+/// Intentos fallidos de login por cuenta. Guarda solo un hash del identificador.
+model LoginThrottle {
+  id             String    @id @default(uuid())
+  clave          String    @unique @db.VarChar(64) // SHA-256 hex de "CUENTA:<email|documento normalizado>"
+  tipo           String    @default("CUENTA") @db.VarChar(10) // permite añadir "IP" en el futuro sin migración
+  intentos       Int       @default(0)
+  ventanaInicio  DateTime  @db.DateTime(3)
+  bloqueadoHasta DateTime? @db.DateTime(3)
+  updatedAt      DateTime  @updatedAt
+
+  @@index([updatedAt])
+  @@map("login_throttles")
+}
+
+// ------------------------------------------------------------------------------
+// F5 — CALENDARIO LABORAL Y NOVEDADES
+// ------------------------------------------------------------------------------
+
+enum TipoNovedad {
+  VACACIONES
+  INCAPACIDAD
+  PERMISO
+  LICENCIA
+  OTRO
+}
+
+enum EstadoNovedad {
+  PENDIENTE
+  AUTORIZADA
+  RECHAZADA
+}
+
+/// Festivo o día no laborable para toda la empresa.
+model DiaNoLaborable {
+  id          String   @id @default(uuid())
+  fecha       DateTime @db.Date
+  descripcion String
+  isActive    Boolean  @default(true)
+  creadoPorId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creadoPor User? @relation("DiasNoLaborablesCreados", fields: [creadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([fecha])
+  @@map("dias_no_laborables")
+}
+
+/// Novedad de un empleado en un rango de fechas (inclusive).
+model NovedadEmpleado {
+  id              String        @id @default(uuid())
+  userId          String
+  tipo            TipoNovedad
+  fechaInicio     DateTime      @db.Date
+  fechaFin        DateTime      @db.Date
+  motivo          String        @db.Text
+  estado          EstadoNovedad @default(PENDIENTE)
+  registradaPorId String
+  resueltaPorId   String?
+  resueltaEn      DateTime?
+  motivoDecision  String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user          User  @relation("NovedadesEmpleado", fields: [userId], references: [id], onDelete: Restrict)
+  registradaPor User  @relation("NovedadesRegistradas", fields: [registradaPorId], references: [id], onDelete: Restrict)
+  resueltaPor   User? @relation("NovedadesResueltas", fields: [resueltaPorId], references: [id], onDelete: SetNull)
+  consolidados  WeeklyConsolidadoDia[]
+
+  @@index([userId, estado, fechaInicio, fechaFin])
+  @@index([estado])
+  @@map("novedades_empleado")
+}
+
+model UsedQrToken {
+  userId    String
+  jti       String
+  /// Instante en que el JWT expira (tomado del campo exp del token verificado).
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([userId, jti])
+  @@index([expiresAt])
+  @@map("used_qr_tokens")
+}
+
+/// Marcación recibida después del cierre del período al que pertenece.
+/// Corrección C: timestampRealizacionUTC (momento del empleado) ≠ timestampRecepcionUTC (servidor).
+/// En el flujo actual del kiosco ambos son prácticamente iguales (getNowUtc()), pero se separan
+/// para corrección futura cuando timestamps de dispositivo estén disponibles.
+model LateMarcacion {
+  id             String @id @default(uuid())
+  weeklyPeriodId String
+  userId         String
+  tipo           TipoMarcacion
+  fechaLaboral   DateTime             @db.Date
+  timestampRealizacionUTC DateTime    @db.DateTime(3)
+  timestampRecepcionUTC   DateTime    @db.DateTime(3)
+  kioskId        String?
+
+  estado        EstadoMarcacionTardia @default(PENDIENTE)
+  adminId       String?
+  motivoRechazo String?               @db.Text
+  resueltaEn    DateTime?
+  attendanceId  String?               @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  weeklyPeriod WeeklyPeriod  @relation(fields: [weeklyPeriodId], references: [id], onDelete: Restrict)
+  user         User          @relation("MarcacionesTardias", fields: [userId], references: [id], onDelete: Restrict)
+  kiosk        KioskDevice?  @relation("MarcacionesTardiasKiosk", fields: [kioskId], references: [id], onDelete: SetNull)
+  admin        User?         @relation("MarcacionesTardiasAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  attendance   Attendance?   @relation("MarcacionTardiaAttendance", fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, fechaLaboral, tipo])
+  @@index([weeklyPeriodId, estado])
+  @@index([userId, estado])
+  @@map("late_marcaciones")
 }

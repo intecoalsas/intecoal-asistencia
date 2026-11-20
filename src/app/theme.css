@@ -1,0 +1,72 @@
+/* ==========================================================================
+   INTECOAL Asistencia — Identidad visual institucional (tema claro)
+   Única fuente de variables de color. Paleta institucional:
+     Amarillo #D9CF43 · Oliva #BFBA6B · Gris claro #F2F2F2
+     Gris medio #BFBFBF · Negro #0D0D0D
+   ========================================================================== */
+:root {
+  /* Paleta institucional */
+  --intecoal-amarillo: #d9cf43;
+  --intecoal-oliva: #bfba6b;
+  --intecoal-gris-claro: #f2f2f2;
+  --intecoal-gris-medio: #bfbfbf;
+  --intecoal-negro: #0d0d0d;
+
+  /* Superficies */
+  --color-bg-main: #f2f2f2;          /* fondo general */
+  --color-bg-card: #ffffff;          /* tarjetas, tablas, formularios, diálogos */
+  --color-bg-muted: #e6e5dc;         /* superficies secundarias, cabeceras de tabla */
+  --color-bg-hover: #efeddc;         /* filas al pasar el ratón (oliva muy suave) */
+  --color-bg-sidebar: #e6e5dc;       /* cabeceras de tabla (heredado del tema anterior) */
+  --color-bg-sidebar-hover: #efeddc; /* filas resaltadas */
+  --color-bg-sidebar-active: #e7e3b0;
+
+  /* Bordes */
+  --color-border: #d4d4d0;           /* divisores (derivado del gris medio) */
+  --color-border-strong: #bfbfbf;    /* gris medio institucional */
+
+  /* Texto */
+  --color-text-primary: #0d0d0d;
+  --color-text-secondary: #595959;   /* derivado: #BFBFBF no es legible como texto */
+
+  /* Acción principal (amarillo) y secundaria (oliva) */
+  --color-primary: #d9cf43;
+  --color-primary-hover: #c9be2f;
+  --color-on-primary: #0d0d0d;       /* texto sobre amarillo: siempre negro */
+  --color-secondary: #bfba6b;
+  --color-secondary-soft: #ecead2;
+  --color-accent-text: #6b651c;      /* acento legible sobre blanco (amarillo oscurecido) */
+
+  /* Compatibilidad: nombres usados por los módulos existentes */
+  --color-amber: var(--color-primary);
+  --color-amber-hover: var(--color-primary-hover);
+  --color-bg-button: var(--color-primary);
+  --color-bg-header: var(--intecoal-negro);
+  --color-red: var(--color-error);
+
+  /* Navegación (barra lateral y encabezado) */
+  --color-nav-bg: #0d0d0d;
+  --color-nav-text: #f2f2f2;
+  --color-nav-text-muted: #bfbfbf;
+  --color-nav-hover: #262626;
+  --color-nav-border: #262626;
+  --color-nav-active-bg: #d9cf43;
+  --color-nav-active-text: #0d0d0d;
+
+  /* Estados (siempre acompañados de texto) */
+  --color-success: #2e7d32;
+  --color-success-bg: #e8f3e8;
+  --color-success-border: #9ccc9f;
+  --color-error: #b3261e;
+  --color-error-bg: #fbeceb;
+  --color-error-border: #e6a19c;
+  --color-warning: #8a6d00;
+  --color-warning-bg: #f8f3d2;
+  --color-warning-border: #d9cf43;
+  --color-info: #37587a;
+  --color-info-bg: #e9eff5;
+  --color-info-border: #a9bfd3;
+
+  /* Elevación discreta de tarjetas */
+  --shadow-card: 0 1px 2px rgba(13, 13, 13, 0.06);
+}

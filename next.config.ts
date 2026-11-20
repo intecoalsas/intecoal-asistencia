@@ -1,9 +1,10 @@
+
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  /* Permitir acceso de desarrollo desde el Redmi por LAN */
+  allowedDevOrigins: ["192.168.1.41", "192.168.1.19"],
+
   turbopack: {
     rules: {
       "*.css": {
