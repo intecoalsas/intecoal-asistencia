@@ -36,6 +36,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { bearerCoincide, leerSecreto } from "@/lib/secrets";
 import { getInicioSemana } from "@/modules/historial";
 import {
   detectarPeriodosPendientes,
@@ -87,14 +88,13 @@ function isoDate(d: Date): string {
 
 /** Verifica la presencia y validez del Bearer token. */
 function autenticarCron(req: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
+  // En producción, un CRON_SECRET ausente o de ejemplo lanza error explícito.
+  const cronSecret = leerSecreto("CRON_SECRET");
   if (!cronSecret) {
     // Sin CRON_SECRET configurado en servidor → rechazar siempre por seguridad.
     return false;
   }
-  const authHeader = req.headers.get("authorization") ?? "";
-  const [scheme, token] = authHeader.split(" ");
-  return scheme === "Bearer" && token === cronSecret;
+  return bearerCoincide(req.headers.get("authorization"), cronSecret);
 }
 
 // ---------------------------------------------------------------------------

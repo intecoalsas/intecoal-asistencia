@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { db } from '@/lib/db';
+import { leerSecretoRequerido } from '@/lib/secrets';
 
 // GET /api/auth/me – devuelve el usuario de la sesión actual
 export async function GET(request: Request) {
@@ -14,8 +15,11 @@ export async function GET(request: Request) {
   if (!token) {
     return NextResponse.json({ error: 'Sesión no iniciada' }, { status: 401 });
   }
+  // Fuera del try: una configuración de secreto inválida debe fallar de forma
+  // explícita (500), no confundirse con una sesión inválida (401).
+  const secreto = leerSecretoRequerido('NEXTAUTH_SECRET');
   try {
-    const payload = jwt.verify(token, process.env.NEXTAUTH_SECRET!) as { sub: string; role: string };
+    const payload = jwt.verify(token, secreto) as { sub: string; role: string };
     const user = await db.user.findUnique({
       where: { id: payload.sub, isActive: true },
       select: { id: true, nombre: true, apellido: true, role: true },

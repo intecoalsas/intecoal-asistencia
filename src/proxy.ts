@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { db } from '@/lib/db';
+import { leerSecretoRequerido } from '@/lib/secrets';
 import type { Role } from '@prisma/client';
 
 // Role‑based access matrix – map route prefixes to allowed roles
@@ -20,8 +21,10 @@ const roleAccess: Record<string, Role[]> = {
 async function getUserRole(request: NextRequest): Promise<Role | null> {
   const token = request.cookies.get('session')?.value;
   if (!token) return null;
+  // Fuera del try: un secreto mal configurado debe fallar explícitamente.
+  const secreto = leerSecretoRequerido('NEXTAUTH_SECRET');
   try {
-    const payload = jwt.verify(token, process.env.NEXTAUTH_SECRET!) as { sub: string; role: Role };
+    const payload = jwt.verify(token, secreto) as { sub: string; role: Role };
     // JWT already carries role; additional DB validation can be added elsewhere if needed.
     return payload.role;
   } catch {

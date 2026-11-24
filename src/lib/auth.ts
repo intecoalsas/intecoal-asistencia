@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { db } from "./db";
+import { leerSecretoRequerido } from "./secrets";
 import type { Role, User } from "@prisma/client";
 
 interface SessionPayload {
@@ -62,11 +63,12 @@ export async function getUserFromRequest(
 
   if (!token) return null;
 
+  // Fuera del try: un secreto mal configurado debe fallar explícitamente,
+  // no tratarse como una sesión inválida.
+  const secreto = leerSecretoRequerido("NEXTAUTH_SECRET");
+
   try {
-    const payload = jwt.verify(
-      token,
-      process.env.NEXTAUTH_SECRET!
-    ) as SessionPayload;
+    const payload = jwt.verify(token, secreto) as SessionPayload;
 
     const user = await db.user.findUnique({
       where: { id: payload.sub },

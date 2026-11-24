@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '@/lib/db';
 import { setSessionCookie } from '@/lib/auth';
+import { leerSecretoRequerido } from '@/lib/secrets';
 import {
   claveCuenta,
   minutosDeBloqueo,
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
     // Generar JWT con vencimiento de 7 días
     const token = jwt.sign(
       { sub: user.id, role: user.role },
-      process.env.NEXTAUTH_SECRET as string,
+      leerSecretoRequerido('NEXTAUTH_SECRET'),
       { expiresIn: '7d' }
     );
 

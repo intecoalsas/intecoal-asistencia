@@ -1,0 +1,73 @@
+# Contexto de construcción Docker — INTECOAL Asistencia
+# Mantiene fuera de la imagen secretos, certificados, datos locales y todo lo
+# que no se necesita para construir o ejecutar la aplicación.
+
+# --- Dependencias y salidas de compilación (se regeneran dentro de la imagen) ---
+node_modules
+.next
+out
+build
+coverage
+next-env.d.ts
+*.tsbuildinfo
+
+# --- Control de versiones ---
+.git
+.gitignore
+.gitattributes
+
+# --- Secretos y variables de entorno ---
+.env
+.env.*
+*.env
+
+# --- Certificados y claves privadas ---
+certs
+certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# --- Respaldos, volcados de base de datos y temporales ---
+backups
+*.dump
+*.bak
+*.sql.gz
+/*.sql
+tmp
+scratch
+*.log
+*.tmp
+
+# --- Archivos generados de pruebas ---
+*.xlsx
+
+# --- Scripts locales de verificación, diagnóstico y datos de prueba ---
+scripts
+src/scripts
+
+# --- Historial de migraciones archivado (la migración vigente va en prisma/migrations) ---
+prisma/migrations_archive
+
+# --- Herramientas de editor y asistentes locales ---
+.vscode
+.idea
+.agents
+.claude
+.cursor
+.devin
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Documentación y archivos que no intervienen en la construcción ---
+docs
+*.md
+!README.md
+
+# --- Docker ---
+Dockerfile
+.dockerignore
+docker-compose*.yml

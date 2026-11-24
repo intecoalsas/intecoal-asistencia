@@ -11,13 +11,14 @@
  * /api/cron/cierre-semanal). Sin CRON_SECRET configurado, rechaza siempre.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { bearerCoincide, leerSecreto } from "@/lib/secrets";
 import { detectarFaltantes, ventanaPorDefecto } from "@/modules/incidencias/deteccion-faltantes.service";
 
 function autenticarCron(req: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
+  // En producción, un CRON_SECRET ausente o de ejemplo lanza error explícito.
+  const cronSecret = leerSecreto("CRON_SECRET");
   if (!cronSecret) return false;
-  const [scheme, token] = (req.headers.get("authorization") ?? "").split(" ");
-  return scheme === "Bearer" && token === cronSecret;
+  return bearerCoincide(req.headers.get("authorization"), cronSecret);
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

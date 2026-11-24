@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { connection } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { db } from '@/lib/db';
+import { leerSecretoRequerido } from '@/lib/secrets';
 import type { Role } from '@prisma/client';
 import { Suspense } from 'react';
 
@@ -26,8 +27,11 @@ async function AuthWrapper({
   const token = cookieStore.get('session')?.value;
   if (!token) redirect('/login');
 
+  // Fuera del try: un secreto mal configurado debe fallar explícitamente.
+  const secreto = leerSecretoRequerido('NEXTAUTH_SECRET');
+
   try {
-    const payload = jwt.verify(token, process.env.NEXTAUTH_SECRET!) as {
+    const payload = jwt.verify(token, secreto) as {
       sub: string; // user id
       role: Role;
     };
